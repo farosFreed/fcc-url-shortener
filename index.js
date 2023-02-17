@@ -35,6 +35,9 @@ app.get("/api/hello", function (req, res) {
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use("/api/shorturl", bodyParser.urlencoded({ extended: false }));
 
+// timeout
+const TIMEOUT = 10000;
+
 // setup url pair mongoose scheme
 let urlSchema = new mongoose.Schema({
   original_url: {
@@ -49,6 +52,7 @@ let urlSchema = new mongoose.Schema({
 
 let UrlPair = mongoose.model("urlPair", urlSchema);
 
+// create and save helper function
 const createAndSaveUrl = (original, short, done) => {
   let newpair = new UrlPair({
     original_url: original, //req.body.original_url,
@@ -64,7 +68,7 @@ const createAndSaveUrl = (original, short, done) => {
 };
 
 // save url pair to mongoose database
-app.post("/api/shorturl", (req, res) => {
+app.post("/api/shorturl", (req, res, next) => {
   let urlWOprotocol = req.body.original_url.match(/\/\/([a-z, A-Z, ., \/]*)/);
   console.log(urlWOprotocol);
   dns.lookup(urlWOprotocol[1], (err, data) => {
@@ -94,27 +98,49 @@ app.post("/api/shorturl", (req, res) => {
             if (err) {
               return next(err);
             }
-            res.json(urlp);
-            pers.remove();
+            // res.json(urlp);
+            // respond
+            res.json({
+              original_url: req.body.original_url,
+              short_url: req.body.short_url,
+            });
+            //urlp.remove();
           });
         }
       );
-
-      // respond
-      res.json({
-        original_url: req.body.original_url,
-        short_url: req.body.short_url,
-      });
     }
   });
 });
 
+const findUrlPairByShortUrl = (short, done) => {
+  UrlPair.findOne({ short_url: short }, (err, data) => {
+    done(null, data);
+  });
+};
+
 // retrieve url pair and redirect
 app.get("/api/shorturl/:shorturl", (req, res) => {
   // TODO
+  findUrlPairByShortUrl(req.params.shorturl, function (err, data) {
+    let t = setTimeout(() => {
+      next({ message: "timeout" });
+    }, TIMEOUT);
+    clearTimeout(t);
+    if (err) {
+      console.log(err);
+      // return next(err);
+    }
+    if (!data) {
+      console.log("missing data");
+      // return next({ message: "Missing callback argument" });
+    } else {
+      // res.json(data);
+      console.log(data);
+      res.redirect(data.original_url);
+      // p.remove();
+    }
+  });
 });
-
-// you can use the function dns.lookup(host, cb) from the dns core module to verify a submitted URL.
 
 app.listen(port, function () {
   console.log(`Listening on port ${port}`);
