@@ -55,8 +55,8 @@ let UrlPair = mongoose.model("urlPair", urlSchema);
 // create and save helper function
 const createAndSaveUrl = (original, short, done) => {
   let newpair = new UrlPair({
-    original_url: original, //req.body.original_url,
-    short_url: short, //req.body.short_url,
+    original_url: original,
+    short_url: short,
   });
 
   newpair.save((err, data) => {
@@ -98,13 +98,11 @@ app.post("/api/shorturl", (req, res, next) => {
             if (err) {
               return next(err);
             }
-            // res.json(urlp);
             // respond
             res.json({
               original_url: req.body.original_url,
               short_url: req.body.short_url,
             });
-            //urlp.remove();
           });
         }
       );
@@ -120,7 +118,6 @@ const findUrlPairByShortUrl = (short, done) => {
 
 // retrieve url pair and redirect
 app.get("/api/shorturl/:shorturl", (req, res) => {
-  // TODO
   findUrlPairByShortUrl(req.params.shorturl, function (err, data) {
     let t = setTimeout(() => {
       next({ message: "timeout" });
@@ -128,16 +125,13 @@ app.get("/api/shorturl/:shorturl", (req, res) => {
     clearTimeout(t);
     if (err) {
       console.log(err);
-      // return next(err);
     }
     if (!data) {
       console.log("missing data");
-      // return next({ message: "Missing callback argument" });
     } else {
-      // res.json(data);
       console.log(data);
-      res.redirect(data.original_url);
-      // p.remove();
+      let redirectUrl = "https://" + data.original_url;
+      res.redirect(redirectUrl);
     }
   });
 });
