@@ -69,45 +69,61 @@ const createAndSaveUrl = (original, short, done) => {
 
 // save url pair to mongoose database
 app.post("/api/shorturl", (req, res, next) => {
-  let urlWOprotocol = req.body.original_url.match(/\/\/([a-z, A-Z, ., \/]*)/);
-  console.log(urlWOprotocol);
-  dns.lookup(urlWOprotocol[1], (err, data) => {
-    if (err) {
+  // check if original url is valid
+  let urlWOprotocol = req.body.original_url.match(
+    /https?:\/\/([a-z, A-Z, 0-9, ., -]*)\/[a-z, A-Z, \?, =, 0-9, \/, ., -]*/
+  );
+  console.log("match: " + urlWOprotocol);
+  if (urlWOprotocol === null) {
+    return next(
       res.json({
         error: "invalid url",
-      });
-    } else {
-      // save to mongoose
-      // in case of incorrect function use wait timeout then respond
-      let t = setTimeout(() => {
-        next({ message: "timeout" });
-      }, TIMEOUT);
-      createAndSaveUrl(
-        urlWOprotocol[1],
-        req.body.short_url,
-        function (err, data) {
-          clearTimeout(t);
-          if (err) {
-            return next(err);
-          }
-          if (!data) {
-            console.log("Missing `done()` argument");
-            return next({ message: "Missing callback argument" });
-          }
-          UrlPair.findById(data._id, function (err, urlp) {
+      })
+    );
+  } else {
+    dns.lookup(urlWOprotocol[1], (err, data) => {
+      if (err) {
+        return next(
+          res.json({
+            error: "invalid url",
+          })
+        );
+      } else {
+        console.log("create and save");
+        // save to mongoose
+        // in case of incorrect function use wait timeout then respond
+        let t = setTimeout(() => {
+          next({ message: "timeout" });
+        }, TIMEOUT);
+        createAndSaveUrl(
+          req.body.original_url,
+          req.body.short_url,
+          function (err, data) {
+            clearTimeout(t);
             if (err) {
               return next(err);
             }
-            // respond
-            res.json({
-              original_url: req.body.original_url,
-              short_url: req.body.short_url,
+            if (!data) {
+              console.log("Missing `done()` argument");
+              return next({ message: "Missing callback argument" });
+            }
+            UrlPair.findById(data._id, function (err, urlp) {
+              if (err) {
+                return next(err);
+              }
+              // respond
+              return next(
+                res.json({
+                  original_url: req.body.original_url,
+                  short_url: req.body.short_url,
+                })
+              );
             });
-          });
-        }
-      );
-    }
-  });
+          }
+        );
+      }
+    });
+  }
 });
 
 const findUrlPairByShortUrl = (short, done) => {
@@ -130,7 +146,7 @@ app.get("/api/shorturl/:shorturl", (req, res) => {
       console.log("missing data");
     } else {
       console.log(data);
-      let redirectUrl = "https://" + data.original_url;
+      let redirectUrl = data.original_url; // "https://" +
       res.redirect(redirectUrl);
     }
   });
